@@ -806,6 +806,7 @@ const App = {
       y: 16,
       timer: 0,
       fill: [],
+      ledMap: [],
       // 🎛️ Controls
       color: "#ff2500",
       isMouseDown: false,
@@ -882,7 +883,11 @@ const App = {
       console.warn(`${this.x} ${this.y}`);
       for (let y = 0; y < this.y; y++) {
         for (let x = 0; x < this.x; x++) {
-          this.fill.push(local[x + this.x * y] !== "" ? local[x + this.x * y] : color);
+          if (this.ledMap[x + this.x * y] <= 0) {
+            this.fill.push(`#00000033`);
+          } else {
+            this.fill.push(local[x + this.x * y] !== "" ? local[x + this.x * y] : color);
+          }
         }
       }
     },
@@ -912,6 +917,15 @@ const App = {
     },
     // 🪣 fill color
     setColor: function (e) {
+      if (this.ledMap.length > e.target.dataset.number) { // If ledMap has a value for index=e, then 
+        console.log("ledMap has a value for ${e.target.dataset.number} (${e.target.dataset.number}=${this.ledMap[e.target.dataset.number]})");
+        if (this.ledMap[e.target.dataset.number] <= 0) {
+          console.log("Setting target attribute to disabled color");
+          e.target.setAttribute("fill", "#00000033"); // Set a "disabled" color
+          return; // Don't set the color if it's mapped as an invalid number
+        }
+      }
+      console.log("Setting pixel=${e} to ${this.color}");
       e.target.setAttribute("fill", this.color);
       this.fill[e.target.dataset.number] = this.color;
       localStorage.fill = this.fill.toString();
@@ -980,6 +994,33 @@ const App = {
           // this.options = true;
           console.error("Fetch Error:", error);
         });
+      // Fetch ledmap.json if it exists
+      fetch(`${this.wledUrl}/ledmap.json`, {
+        method: "GET",
+        headers: {
+          "Content-type": "application/json; charset=UTF-8"
+        }
+      })
+        .then((response) => {
+          return response.json();
+        })
+        .then((data) => {
+          console.log(data);
+          if ((data) && (data.map) && (Array.isArray(data.map)) && (data.map.every(Number.isInteger))) {
+            if (data.map.length == (this.x*this.y)) {
+              this.ledMap = [...data.map];
+            } else {
+              console.log("Failed to parse `ledMap.json`. Incorrect number of pixels in `data.map`. Seeing ${data.map.length}, expect ${(this.x*this.y)}.");
+              console.log(data);
+            }
+          } else {
+            console.log("Failed to parse `ledMap.json`. Data: ");
+            console.log(data);
+          }
+        })
+        .catch((error) => {
+          console.log("No `ledMap.json file to parse. Possible error: ", error);
+        });
     },
     // END 🐵 Send API request --------------//
     //--------------------------------//
@@ -1046,6 +1087,10 @@ const App = {
       this.loading = false;
       this.fill = [];
       localStorage.y = this.y;
+      this.setupColors();
+    },
+    ledMap: function (newData) {
+      this.fill = [];
       this.setupColors();
     },
     //--------------------------------//
